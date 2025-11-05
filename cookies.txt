@@ -8,7 +8,7 @@
 .instagram.com	TRUE	/	TRUE	1783750070	datr	zYVCaDmmeiYMSsCJWtWmkVH_
 .instagram.com	TRUE	/	TRUE	1762666738	dpr	1.25
 .instagram.com	TRUE	/	TRUE	1795613679	mid	aPeLtQALAAHG8xFvibVr6G8YhQM_
-.instagram.com	TRUE	/	TRUE	1796839654	csrftoken	GElEp7eRF93qUM40Ojbp6UOLRTOeEwib
+.instagram.com	TRUE	/	TRUE	1796849474	csrftoken	GElEp7eRF93qUM40Ojbp6UOLRTOeEwib
 .instagram.com	TRUE	/	TRUE	1769879210	ds_user_id	10973634086
 .instagram.com	TRUE	/	TRUE	1762666738	wd	1536x695
 .instagram.com	TRUE	/	TRUE	1762664779	ig_direct_region_hint	"RVA\05410973634086\0541793595914:01fe91aad030cdb751c3b32f8127e13e4d8a89319b71a41c8fb741a5647c03963d3c4ef7"

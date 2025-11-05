@@ -6,6 +6,22 @@ const path = require('path');
 const { promisify } = require('util');
 
 const app = express();
+
+let ytDlpPath = 'yt-dlp';
+
+try {
+  execSync('which yt-dlp', { stdio: 'pipe' });
+  console.log('✅ yt-dlp found in system');
+} catch (error) {
+  try {
+    console.log('⚠️ Installing yt-dlp...');
+    execSync('pip install yt-dlp || pip3 install yt-dlp', { stdio: 'inherit' });
+    console.log('✅ yt-dlp installed successfully');
+  } catch (installError) {
+    console.error('❌ Failed to install yt-dlp:', installError.message);
+  }
+}
+
 const ytDlp = new YTDlpWrap();
 
 app.use(cors());
