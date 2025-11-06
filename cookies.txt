@@ -1,7 +1,3 @@
-# Netscape HTTP Cookie File
-# https://curl.haxx.se/rfc/cookie_spec.html
-# This is a generated file! Do not edit.
-
 .youtube.com	TRUE	/	TRUE	1797011455	PREF	f4=4000000&f6=40000000&tz=Asia.Calcutta&f7=100
 .youtube.com	TRUE	/	FALSE	1796838801	HSID	AmZn5QDJY_MaqiOc0
 .youtube.com	TRUE	/	TRUE	1796838801	SSID	ANN_X_bgD561bbzWp
