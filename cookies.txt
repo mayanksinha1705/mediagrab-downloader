@@ -10,11 +10,6 @@ www.pinterest.com	FALSE	/	TRUE	1784814544	csrftoken	f3487275db2996c333efba10c59a
 www.pinterest.com	FALSE	/	FALSE	1762534853	_routing_id	"adfa616a-e24c-422f-b20b-6ac9702fe41d"
 www.pinterest.com	FALSE	/	TRUE	1762491654	sessionFunnelEventLogged	1
 www.pinterest.com	FALSE	/	FALSE	1778000454	g_state	{"i_l":0,"i_ll":1762448454796,"i_b":"7Ffal/nPMDiNv8A9l2BtEEDdAmj924fhIwUPxRQPMhU"}
-
-# Netscape HTTP Cookie File
-# https://curl.haxx.se/rfc/cookie_spec.html
-# This is a generated file! Do not edit.
-
 .youtube.com	TRUE	/	TRUE	1797008491	PREF	f4=4000000&f6=40000000&tz=Asia.Calcutta&f7=100
 .youtube.com	TRUE	/	FALSE	1796838801	HSID	AmZn5QDJY_MaqiOc0
 .youtube.com	TRUE	/	TRUE	1796838801	SSID	ANN_X_bgD561bbzWp
@@ -36,11 +31,6 @@ www.pinterest.com	FALSE	/	FALSE	1778000454	g_state	{"i_l":0,"i_ll":1762448454796
 .youtube.com	TRUE	/	TRUE	1778000488	VISITOR_PRIVACY_METADATA	CgJJThIEGgAgYg%3D%3D
 .youtube.com	TRUE	/	TRUE	1777990106	__Secure-ROLLOUT_TOKEN	COSLxvvc7-39BxDjrdPBn-6MAxjJ7cqq2d2QAw%3D%3D
 .youtube.com	TRUE	/	TRUE	0	YSC	2jqM9O0SmWo
-
-# Netscape HTTP Cookie File
-# https://curl.haxx.se/rfc/cookie_spec.html
-# This is a generated file! Do not edit.
-
 .instagram.com	TRUE	/	TRUE	1783750069	ps_l	1
 .instagram.com	TRUE	/	TRUE	1783750069	ps_n	1
 .instagram.com	TRUE	/	TRUE	1780726070	ig_nrcb	1
