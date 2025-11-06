@@ -1,8 +1,4 @@
-
 # Netscape HTTP Cookie File
-# https://curl.haxx.se/rfc/cookie_spec.html
-# This is a generated file! Do not edit.
-
 .pinterest.com	TRUE	/	TRUE	1776173513	_pinterest_sess	TWc9PSZVSUtZYnN3RE5PMnhzQTJSdGJWQkU5dmkvZXpKd0l2RDVUYTJjRURDeks0TzdFMzVRZ09QOTRGV0RCZmZwVVRieGFYb2dIR1FJellOOFB3MkZlYitVUENITm1kSmJva0dQRHJvcjFPb1RZaz0mY2l6eThjcEhYY2wvL2dQRGI5eXJiK2I2RW4wPQ==
 .pinterest.com	TRUE	/	TRUE	1776173513	_auth	0
 .pinterest.com	TRUE	/	TRUE	1791908567	ar_debug	1
