@@ -265,97 +265,118 @@ app.post('/api/download', async (req, res) => {
     
     console.log('🚀 Downloading...');
     
-    // Execute download with progress tracking
-    const ytDlpProcess = ytDlp.exec(args);
-    
-    ytDlpProcess.on('progress', (progressInfo) => {
-      if (progressInfo.percent) {
-        const percent = Math.min(90, Math.round(progressInfo.percent));
-        downloadProgress.set(downloadId, { 
-          percent, 
-          status: 'downloading',
-          speed: progressInfo.speed,
-          eta: progressInfo.eta
-        });
-        console.log(`📊 Progress: ${percent}%`);
-      }
-    });
-    
-    ytDlpProcess.on('close', async () => {
-      try {
-        downloadProgress.set(downloadId, { percent: 95, status: 'processing' });
-        
-        // Find the downloaded file
-        const files = fs.readdirSync(TEMP_DIR).filter(f => 
-          f.startsWith(timestamp.toString()) && !f.endsWith('.path')
-        );
-        
-        if (files.length === 0) {
-          throw new Error('Download failed - no file created');
-        }
-        
-        actualFilePath = path.join(TEMP_DIR, files[0]);
-        const actualExt = path.extname(files[0]).substring(1) || ext;
-        
-        console.log('✅ Downloaded to:', actualFilePath);
-        
-        // Update content type
-        if (actualExt === 'mp3' || actualExt === 'm4a') {
-          contentType = 'audio/mpeg';
-        } else if (actualExt === 'mp4') {
-          contentType = 'video/mp4';
-        } else if (actualExt === 'webm') {
-          contentType = 'video/webm';
-        } else if (['jpg', 'jpeg'].includes(actualExt)) {
-          contentType = 'image/jpeg';
-        } else if (actualExt === 'png') {
-          contentType = 'image/png';
-        }
-        
-        const stats = fs.statSync(actualFilePath);
-        const fileSize = stats.size;
-        
-        console.log(`📊 File size: ${(fileSize / 1024 / 1024).toFixed(2)} MB`);
-        
-        const downloadFilename = `${safeTitle}.${actualExt}`;
-        
-        // Store file info for retrieval
-        downloadProgress.set(downloadId, { 
-          percent: 100, 
-          status: 'complete',
-          filePath: actualFilePath,
-          filename: downloadFilename,
-          contentType: contentType,
-          fileSize: fileSize
-        });
-        
-      } catch (error) {
-        console.error('❌ Error:', error);
-        downloadProgress.set(downloadId, { 
-          percent: 0, 
-          status: 'error',
-          error: error.message 
-        });
-      }
-    });
-    
-    ytDlpProcess.on('error', (error) => {
-      console.error('❌ Download error:', error);
+   // Execute download with progress tracking
+const ytDlpProcess = ytDlp.exec(args);
+
+let lastProgress = 10;
+
+// Better progress tracking
+ytDlpProcess.stdout.on('data', (data) => {
+  const output = data.toString();
+  
+  // Parse progress from yt-dlp output
+  const progressMatch = output.match(/(\d+\.?\d*)%/);
+  if (progressMatch) {
+    const percent = Math.min(90, Math.round(parseFloat(progressMatch[1])));
+    if (percent > lastProgress) {
+      lastProgress = percent;
       downloadProgress.set(downloadId, { 
-        percent: 0, 
-        status: 'error',
-        error: error.message 
+        percent, 
+        status: 'downloading'
       });
+      console.log(`📊 Progress: ${percent}%`);
+    }
+  }
+});
+
+ytDlpProcess.on('close', async (code) => {
+  console.log('📦 yt-dlp process closed with code:', code);
+  
+  try {
+    if (code !== 0) {
+      throw new Error(`Download failed with exit code ${code}`);
+    }
+    
+    downloadProgress.set(downloadId, { percent: 95, status: 'processing' });
+    
+    // Wait a bit for file system to sync
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    // Find the downloaded file
+    const files = fs.readdirSync(TEMP_DIR).filter(f => 
+      f.startsWith(timestamp.toString()) && !f.endsWith('.path') && !f.endsWith('.part')
+    );
+    
+    if (files.length === 0) {
+      console.error('❌ No files found. Files in temp:', fs.readdirSync(TEMP_DIR));
+      throw new Error('Download failed - no file created');
+    }
+    
+    actualFilePath = path.join(TEMP_DIR, files[0]);
+    
+    // Verify file exists and has content
+    if (!fs.existsSync(actualFilePath)) {
+      throw new Error('Downloaded file not found');
+    }
+    
+    const stats = fs.statSync(actualFilePath);
+    if (stats.size === 0) {
+      throw new Error('Downloaded file is empty');
+    }
+    
+    const actualExt = path.extname(files[0]).substring(1) || ext;
+    
+    console.log('✅ Downloaded to:', actualFilePath);
+    console.log('📊 File size:', (stats.size / 1024 / 1024).toFixed(2), 'MB');
+    
+    // Update content type
+    if (actualExt === 'mp3' || actualExt === 'm4a') {
+      contentType = 'audio/mpeg';
+    } else if (actualExt === 'mp4') {
+      contentType = 'video/mp4';
+    } else if (actualExt === 'webm') {
+      contentType = 'video/webm';
+    } else if (['jpg', 'jpeg'].includes(actualExt)) {
+      contentType = 'image/jpeg';
+    } else if (actualExt === 'png') {
+      contentType = 'image/png';
+    }
+    
+    const downloadFilename = `${safeTitle}.${actualExt}`;
+    
+    // Store file info for retrieval
+    downloadProgress.set(downloadId, { 
+      percent: 100, 
+      status: 'complete',
+      filePath: actualFilePath,
+      filename: downloadFilename,
+      contentType: contentType,
+      fileSize: stats.size
     });
+    
+    console.log('✅ Download complete and ready:', downloadFilename);
     
   } catch (error) {
-    console.error('❌ Download error:', error.message);
+    console.error('❌ Error in close handler:', error);
     downloadProgress.set(downloadId, { 
       percent: 0, 
       status: 'error',
       error: error.message 
     });
   }
+});
+
+ytDlpProcess.on('error', (error) => {
+  console.error('❌ Process error:', error);
+  downloadProgress.set(downloadId, { 
+    percent: 0, 
+    status: 'error',
+    error: error.message 
+  });
+});
+
+ytDlpProcess.stderr.on('data', (data) => {
+  console.error('⚠️ yt-dlp stderr:', data.toString());
 });
 
 // Get downloaded file
