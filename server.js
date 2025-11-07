@@ -175,7 +175,6 @@ app.get('/api/download-progress/:id', (req, res) => {
 });
 
 // Download video
-// Download video
 // Download video with progress tracking
 app.post('/api/download', async (req, res) => {
   let tempFilePath = null;
@@ -196,17 +195,39 @@ app.post('/api/download', async (req, res) => {
     // Initialize progress
     downloadProgress.set(downloadId, { percent: 0, status: 'analyzing' });
     
-    // Get video info first (rest of info retrieval logic is skipped for brevity)
-    // ... (info retrieval logic and argument building)
+    // Get video info first
+    const infoArgs = [url, '--dump-json', '--no-warnings', '--skip-download'];
+    addCookieArgs(infoArgs, platform);
+    
     let info;
-    // ... (rest of info retrieval logic)
+    try {
+      const infoString = await ytDlp.execPromise(infoArgs);
+      info = JSON.parse(infoString);
+    } catch (error) {
+      if (error.message.includes('Could not copy')) {
+        const fallbackArgs = [url, '--dump-json', '--no-warnings', '--skip-download'];
+        const infoString = await ytDlp.execPromise(fallbackArgs);
+        info = JSON.parse(infoString);
+      } else {
+        throw error;
+      }
+    }
     
     const safeTitle = info.title.replace(/[^a-z0-9]/gi, '_').substring(0, 50);
     const timestamp = Date.now();
     
     let ext = info.ext || 'mp4';
     let contentType = 'video/mp4';
-    // ... (rest of file type and path logic)
+    
+    if (['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(ext.toLowerCase())) {
+      contentType = ext.toLowerCase() === 'jpg' ? 'image/jpeg' : `image/${ext}`;
+    } else if (ext === 'mp3' || ext === 'm4a') {
+      contentType = 'audio/mpeg';
+      ext = 'mp3';
+    } else {
+      ext = 'mp4';
+      contentType = 'video/mp4';
+    }
     
     tempFilePath = path.join(TEMP_DIR, `${timestamp}.%(ext)s`);
     
@@ -220,7 +241,26 @@ app.post('/api/download', async (req, res) => {
     addCookieArgs(args, platform);
     
     // Format selection
-    // ... (rest of format selection logic)
+    if (contentType.startsWith('video/')) {
+      if (formatId === 'audio') {
+        args.push('-f', 'bestaudio/best');
+        args.push('-x', '--audio-format', 'mp3', '--audio-quality', '0');
+        ext = 'mp3';
+        contentType = 'audio/mpeg';
+      } else if (formatId === '1080p') {
+        args.push('-f', 'bestvideo[height<=1080]+bestaudio/best[height<=1080]/best');
+      } else if (formatId === '720p') {
+        args.push('-f', 'bestvideo[height<=720]+bestaudio/best[height<=720]/best');
+      } else if (formatId === '480p') {
+        args.push('-f', 'bestvideo[height<=480]+bestaudio/best[height<=480]/best');
+      } else {
+        args.push('-f', 'bestvideo+bestaudio/best');
+      }
+      
+      if (formatId !== 'audio') {
+        args.push('--merge-output-format', 'mp4');
+      }
+    }
     
     args.push('-o', tempFilePath);
     args.push('--no-warnings');
@@ -239,11 +279,9 @@ app.post('/api/download', async (req, res) => {
     }
     // ⭐ End dedicated try/catch for process creation ⭐
 
-
 let lastProgress = 10;
 
 // Better progress tracking
-// THESE LINES NOW SAFELY USE ytDlpProcess
 ytDlpProcess.stdout.on('data', (data) => {
   const output = data.toString();
   
@@ -360,8 +398,8 @@ ytDlpProcess.stderr.on('data', (data) => {
         error: error.message || 'Unknown download error occurred'
     });
 }
-});
-// ... (rest of the file remains the same)
+}); // <-- FIX 2: Critical closing brace/parenthesis for app.post()
+
 // Get downloaded file
 app.get('/api/download-file/:id', async (req, res) => {
   const { id } = req.params;
