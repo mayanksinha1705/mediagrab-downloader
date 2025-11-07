@@ -416,6 +416,32 @@ app.get('/api/download-file/:id', async (req, res) => {
   });
 });
 
+// Debug endpoint to check download status
+app.get('/api/debug-download/:id', (req, res) => {
+  const { id } = req.params;
+  const progress = downloadProgress.get(id);
+  
+  if (!progress) {
+    return res.json({ 
+      found: false, 
+      message: 'Download ID not found',
+      allIds: Array.from(downloadProgress.keys())
+    });
+  }
+  
+  const fileExists = progress.filePath ? fs.existsSync(progress.filePath) : false;
+  const fileSize = fileExists ? fs.statSync(progress.filePath).size : 0;
+  
+  res.json({
+    found: true,
+    progress: progress,
+    fileExists: fileExists,
+    fileSize: fileSize,
+    tempDir: TEMP_DIR,
+    filesInTemp: fs.readdirSync(TEMP_DIR)
+  });
+});    
+
 
 const PORT = 3001;
 app.listen(PORT, () => {
