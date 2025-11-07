@@ -181,6 +181,9 @@ app.post('/api/download', async (req, res) => {
   let actualFilePath = null;
   const downloadId = Date.now().toString();
   
+  // Declare ytDlpProcess outside the inner try block (FIX for 'on' undefined error)
+  let ytDlpProcess;
+
   try {
     const { url, formatId, platform } = req.body;
     console.log('📥 Downloading:', url);
@@ -266,8 +269,16 @@ app.post('/api/download', async (req, res) => {
     
     console.log('🚀 Downloading...');
     
-   // Execute download with progress tracking
-const ytDlpProcess = ytDlp.exec(args);
+    // ⭐ FIX 3: Dedicated try/catch for process creation ⭐
+    try {
+        // Execute download with progress tracking
+        ytDlpProcess = ytDlp.exec(args);
+    } catch (execError) {
+        // If exec fails (e.g., yt-dlp path is wrong), throw it to the outer catch
+        throw execError;
+    }
+    // ⭐ End dedicated try/catch for process creation ⭐
+
 
 let lastProgress = 10;
 
@@ -380,13 +391,13 @@ ytDlpProcess.stderr.on('data', (data) => {
   console.error('⚠️ yt-dlp stderr:', data.toString());
 });
 
-} catch (error) { // <-- FIX 2: Added missing catch block for the main route try {}
-    console.error('❌ Outer Download Route Handler Error:', error.message);
-    downloadProgress.set(downloadId, {
-        percent: 0,
-        status: 'error',
-        error: error.message || 'Unknown download error occurred'
-    });
+} catch (error) { // <-- FIX 2: This is the main route handler's catch block, catching process creation errors or thrown errors from above
+    console.error('❌ Outer Download Route Handler Error:', error.message);
+    downloadProgress.set(downloadId, {
+        percent: 0,
+        status: 'error',
+        error: error.message || 'Unknown download error occurred'
+    });
 }
 }); // <-- FIX 2: Added critical closing brace/parenthesis for app.post()
 
