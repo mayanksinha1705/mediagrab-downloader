@@ -8,6 +8,9 @@ const { execSync } = require('child_process');
 
 const app = express();
 
+// ⭐ NEW: Define PROXY_URL from environment variable
+const PROXY_URL = process.env.YT_DLP_PROXY || null; 
+
 // Check and install yt-dlp
 let ytDlpPath = 'yt-dlp';
 
@@ -120,6 +123,13 @@ app.post('/api/info', async (req, res) => {
     
     const args = [url, '--dump-json', '--no-warnings', '--skip-download'];
     addCookieArgs(args, platform);
+
+    // ⭐ CORRECTION: Add proxy argument for info fetch
+    if (PROXY_URL) {
+        args.push('--proxy', PROXY_URL);
+        console.log('🌐 Routing info request through proxy.');
+    }
+    
     args.push('--extractor-retries', '3');
     
     const infoString = await ytDlp.execPromise(args);
@@ -190,7 +200,12 @@ app.post('/api/download', async (req, res) => {
     console.log('4. Fetching video info...');
     const infoArgs = [url, '--dump-json', '--no-warnings', '--skip-download'];
     addCookieArgs(infoArgs, platform);
-    
+    
+    // ⭐ CORRECTION: Add proxy argument for infoArgs
+    if (PROXY_URL) {
+        infoArgs.push('--proxy', PROXY_URL);
+    }
+    
     let info;
     try {
       const infoString = await ytDlp.execPromise(infoArgs);
@@ -225,7 +240,13 @@ app.post('/api/download', async (req, res) => {
     // Build download arguments
     const args = [url];
     addCookieArgs(args, platform);
-    
+    
+    // ⭐ CORRECTION: Add proxy argument for main download args
+    if (PROXY_URL) {
+        args.push('--proxy', PROXY_URL);
+        console.log('🌐 Routing download through proxy.');
+    }
+    
     if (contentType.startsWith('video/')) {
       if (formatId === 'audio') {
         args.push('-f', 'bestaudio/best', '-x', '--audio-format', 'mp3', '--audio-quality', '0');
@@ -257,8 +278,8 @@ app.post('/api/download', async (req, res) => {
       downloadProcess = ytDlp.exec(args, {
         stdio: [
           'ignore', // stdin
-          'pipe',   // stdout
-          'pipe'    // stderr
+          'pipe',   // stdout
+          'pipe'    // stderr
         ]
       });
       console.log('9. ✅ Process created');
@@ -275,7 +296,7 @@ app.post('/api/download', async (req, res) => {
     }
     
     // !!! THE PREVIOUSLY FAILING CHECK HAS BEEN REMOVED !!!
-    /*     if (!downloadProcess.stdout) {
+    /*     if (!downloadProcess.stdout) {
       throw new Error('Process has no stdout');
     }
     */
