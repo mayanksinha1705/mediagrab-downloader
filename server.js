@@ -8,7 +8,7 @@ const { execSync } = require('child_process');
 
 const app = express();
 
-// ⭐ NEW: Define PROXY_URL from environment variable
+// ⭐ NEW: Define PROXY_URL from environment variable (Kept for proxy fallback)
 const PROXY_URL = process.env.YT_DLP_PROXY || null; 
 
 // Check and install yt-dlp
@@ -20,7 +20,8 @@ try {
 } catch (error) {
   try {
     console.log('⚠️ Installing yt-dlp...');
-    execSync('pip install yt-dlp || pip3 install yt-dlp', { stdio: 'inherit' });
+    // NOTE: The build command MUST be updated to include yt-dlp-youtube-oauth2
+    execSync('pip install yt-dlp || pip3 install yt-dlp', { stdio: 'inherit' }); 
     console.log('✅ yt-dlp installed successfully');
   } catch (installError) {
     console.error('❌ Failed to install yt-dlp:', installError.message);
@@ -63,19 +64,31 @@ function cleanTempFiles() {
 cleanTempFiles();
 setInterval(cleanTempFiles, 1800000);
 
-// Helper function to add cookie arguments
-function addCookieArgs(args, platform) {
-  const cookiePath = path.join(__dirname, 'cookies.txt');
-  
-  if (fs.existsSync(cookiePath)) {
-    args.push('--cookies', cookiePath);
-    console.log('🍪 Using cookies.txt file for', platform);
-    return 'file';
-  } else {
-    console.log('⚠️ No cookies.txt found');
-    return 'none';
-  }
+// ⭐ NEW: Combined authentication function
+function addAuthArgs(args, platform) {
+    const cookiePath = path.join(__dirname, 'cookies.txt');
+    
+    // --- 1. Primary Method: OAuth2 Login (Requires external authorization) ---
+    args.push('--username', 'oauth2'); // Tells yt-dlp to use OAuth2 client
+    args.push('--password', '');        // Password is left empty for OAuth2
+    args.push('--ppa', 'youtube_oauth2'); // Activates the installed OAuth2 plugin
+    console.log('🔑 Attempting OAuth2 login (Primary)');
+
+    // --- 2. Fallback Method: Cookies File ---
+    if (fs.existsSync(cookiePath)) {
+        args.push('--cookies', cookiePath);
+        console.log('🍪 Adding cookies.txt as fallback.');
+    } else {
+        console.log('⚠️ No cookies.txt found for fallback.');
+    }
+
+    // --- 3. Client Impersonation / Spoofing ---
+    // User-Agent: Makes request look like a modern browser
+    args.push('--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+    // Extractor Arg: Makes the request look like it came from the YouTube Android App
+    args.push('--extractor-args', 'youtube:player-client=android');
 }
+
 
 // Test endpoint
 app.get('/api/test', (req, res) => {
@@ -122,14 +135,15 @@ app.post('/api/info', async (req, res) => {
     console.log('📥 Fetching info for:', url);
     
     const args = [url, '--dump-json', '--no-warnings', '--skip-download'];
-    addCookieArgs(args, platform);
+    // ⭐ UPDATED TO USE NEW AUTH FUNCTION
+    addAuthArgs(args, platform); 
 
-    // ⭐ CORRECTION: Add proxy argument for info fetch
-    if (PROXY_URL) {
-        args.push('--proxy', PROXY_URL);
-        console.log('🌐 Routing info request through proxy.');
-    }
-    
+    // ⭐ CORRECTION: Add proxy argument for info fetch
+    if (PROXY_URL) {
+        args.push('--proxy', PROXY_URL);
+        console.log('🌐 Routing info request through proxy.');
+    }
+    
     args.push('--extractor-retries', '3');
     
     const infoString = await ytDlp.execPromise(args);
@@ -199,13 +213,14 @@ app.post('/api/download', async (req, res) => {
     // Get video info
     console.log('4. Fetching video info...');
     const infoArgs = [url, '--dump-json', '--no-warnings', '--skip-download'];
-    addCookieArgs(infoArgs, platform);
-    
-    // ⭐ CORRECTION: Add proxy argument for infoArgs
-    if (PROXY_URL) {
-        infoArgs.push('--proxy', PROXY_URL);
-    }
-    
+    // ⭐ UPDATED TO USE NEW AUTH FUNCTION
+    addAuthArgs(infoArgs, platform);
+    
+    // ⭐ CORRECTION: Add proxy argument for infoArgs
+    if (PROXY_URL) {
+        infoArgs.push('--proxy', PROXY_URL);
+    }
+    
     let info;
     try {
       const infoString = await ytDlp.execPromise(infoArgs);
@@ -239,14 +254,15 @@ app.post('/api/download', async (req, res) => {
     
     // Build download arguments
     const args = [url];
-    addCookieArgs(args, platform);
-    
-    // ⭐ CORRECTION: Add proxy argument for main download args
-    if (PROXY_URL) {
-        args.push('--proxy', PROXY_URL);
-        console.log('🌐 Routing download through proxy.');
-    }
-    
+    // ⭐ UPDATED TO USE NEW AUTH FUNCTION
+    addAuthArgs(args, platform); 
+    
+    // ⭐ CORRECTION: Add proxy argument for main download args
+    if (PROXY_URL) {
+        args.push('--proxy', PROXY_URL);
+        console.log('🌐 Routing download through proxy.');
+    }
+    
     if (contentType.startsWith('video/')) {
       if (formatId === 'audio') {
         args.push('-f', 'bestaudio/best', '-x', '--audio-format', 'mp3', '--audio-quality', '0');
@@ -382,140 +398,4 @@ app.post('/api/download', async (req, res) => {
           const actualExt = path.extname(files[0]).substring(1) || ext;
           
           console.log('✅ File:', actualFilePath);
-          console.log('📊 Size:', (stats.size / 1024 / 1024).toFixed(2), 'MB');
-          
-          if (actualExt === 'mp3' || actualExt === 'm4a') {
-            contentType = 'audio/mpeg';
-          } else if (actualExt === 'mp4') {
-            contentType = 'video/mp4';
-          } else if (actualExt === 'webm') {
-            contentType = 'video/webm';
-          } else if (['jpg', 'jpeg'].includes(actualExt)) {
-            contentType = 'image/jpeg';
-          } else if (actualExt === 'png') {
-            contentType = 'image/png';
-          }
-          
-          const downloadFilename = `${safeTitle}.${actualExt}`;
-          
-          downloadProgress.set(downloadId, { 
-            percent: 100, 
-            status: 'complete',
-            filePath: actualFilePath,
-            filename: downloadFilename,
-            contentType: contentType,
-            fileSize: stats.size
-          });
-          
-          console.log('✅ Ready:', downloadFilename);
-          console.log('=== DOWNLOAD COMPLETE ===');
-          
-        } catch (closeError) {
-          console.error('❌ Close error:', closeError.message);
-          downloadProgress.set(downloadId, { 
-            percent: 0, 
-            status: 'error',
-            error: closeError.message 
-          });
-        }
-      });
-      console.log('14. close listener OK');
-      console.log('=== SETUP COMPLETE ===');
-    } catch (e) {
-      console.error('14. ERROR:', e.message);
-      throw e;
-    }
-    
-  } catch (error) {
-    console.error('=== DOWNLOAD ERROR ===');
-    console.error('Message:', error.message);
-    console.error('Stack:', error.stack);
-    downloadProgress.set(downloadId, {
-      percent: 0,
-      status: 'error',
-      error: error.message
-    });
-  }
-});
-
-// Get downloaded file
-app.get('/api/download-file/:id', async (req, res) => {
-  const { id } = req.params;
-  const progress = downloadProgress.get(id);
-  
-  console.log('📥 File request:', id);
-  console.log('📊 Status:', progress?.status);
-  
-  if (!progress) {
-    console.error('❌ ID not found');
-    return res.status(404).json({ error: 'Download ID not found' });
-  }
-  
-  if (progress.status !== 'complete') {
-    console.error('❌ Not ready. Status:', progress.status);
-    return res.status(404).json({ error: `Not ready. Status: ${progress.status}` });
-  }
-  
-  const { filePath, filename, contentType, fileSize } = progress;
-  
-  if (!fs.existsSync(filePath)) {
-    console.error('❌ File missing:', filePath);
-    return res.status(404).json({ error: 'File not found on disk' });
-  }
-  
-  console.log('✅ Sending:', filename);
-  
-  res.writeHead(200, {
-    'Content-Type': contentType,
-    'Content-Disposition': `attachment; filename="${filename}"`,
-    'Content-Length': fileSize,
-    'Cache-Control': 'no-cache',
-    'X-Content-Type-Options': 'nosniff'
-  });
-  
-  const fileStream = fs.createReadStream(filePath);
-  fileStream.pipe(res);
-  
-  res.on('finish', async () => {
-    try {
-      await unlinkAsync(filePath);
-      downloadProgress.delete(id);
-      console.log('🗑️ Cleaned:', filename);
-    } catch (err) {
-      console.log('⚠️ Cleanup failed');
-    }
-  });
-});
-
-// Debug endpoint
-app.get('/api/debug-download/:id', (req, res) => {
-  const { id } = req.params;
-  const progress = downloadProgress.get(id);
-  
-  if (!progress) {
-    return res.json({ 
-      found: false, 
-      allIds: Array.from(downloadProgress.keys()),
-      totalDownloads: downloadProgress.size
-    });
-  }
-  
-  const fileExists = progress.filePath ? fs.existsSync(progress.filePath) : false;
-  const fileSize = fileExists ? fs.statSync(progress.filePath).size : 0;
-  
-  res.json({
-    found: true,
-    progress: progress,
-    fileExists: fileExists,
-    fileSize: fileSize,
-    tempDir: TEMP_DIR,
-    filesInTemp: fs.readdirSync(TEMP_DIR)
-  });
-});
-
-const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => {
-  console.log('✅ Server on port', PORT);
-  console.log('📁 Temp:', TEMP_DIR);
-  console.log('🚀 Ready!');
-});
+          console.log('📊 Size:', (stats.size
