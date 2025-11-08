@@ -35,11 +35,6 @@
 .youtube.com	TRUE	/	TRUE	1778080193	VISITOR_PRIVACY_METADATA	CgJJThIEGgAgYg%3D%3D
 .youtube.com	TRUE	/	TRUE	0	YSC	esmSPXFqdJ0
 .youtube.com	TRUE	/	TRUE	1778080169	__Secure-ROLLOUT_TOKEN	COSLxvvc7-39BxDjrdPBn-6MAxjJzJPrqOCQAw%3D%3D
-
-# Netscape HTTP Cookie File
-# https://curl.haxx.se/rfc/cookie_spec.html
-# This is a generated file! Do not edit.
-
 .google.com	TRUE	/	FALSE	1796626781	HSID	A-lB1O_afNY5lsSJz
 .google.com	TRUE	/	TRUE	1796626781	SSID	A3uMwvbfyh17a7KlH
 .google.com	TRUE	/	FALSE	1796626781	APISID	MD39pZChicwwFTo0/AA6hJT4y9LwQaryjk
