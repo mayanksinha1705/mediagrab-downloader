@@ -8,9 +8,6 @@ const { execSync } = require('child_process');
 
 const app = express();
 
-// ⭐ NEW: Define PROXY_URL from environment variable (Kept for proxy fallback)
-const PROXY_URL = process.env.YT_DLP_PROXY || null; 
-
 // Check and install yt-dlp
 let ytDlpPath = 'yt-dlp';
 
@@ -20,8 +17,7 @@ try {
 } catch (error) {
   try {
     console.log('⚠️ Installing yt-dlp...');
-    // NOTE: The build command MUST be updated to include yt-dlp-youtube-oauth2
-    execSync('pip install yt-dlp || pip3 install yt-dlp', { stdio: 'inherit' }); 
+    execSync('pip install yt-dlp || pip3 install yt-dlp', { stdio: 'inherit' });
     console.log('✅ yt-dlp installed successfully');
   } catch (installError) {
     console.error('❌ Failed to install yt-dlp:', installError.message);
@@ -64,31 +60,19 @@ function cleanTempFiles() {
 cleanTempFiles();
 setInterval(cleanTempFiles, 1800000);
 
-// ⭐ NEW: Combined authentication function
-function addAuthArgs(args, platform) {
-    const cookiePath = path.join(__dirname, 'cookies.txt');
-    
-    // --- 1. Primary Method: OAuth2 Login (Requires external authorization) ---
-    args.push('--username', 'oauth2'); // Tells yt-dlp to use OAuth2 client
-    args.push('--password', '');        // Password is left empty for OAuth2
-    args.push('--ppa', 'youtube_oauth2'); // Activates the installed OAuth2 plugin
-    console.log('🔑 Attempting OAuth2 login (Primary)');
-
-    // --- 2. Fallback Method: Cookies File ---
-    if (fs.existsSync(cookiePath)) {
-        args.push('--cookies', cookiePath);
-        console.log('🍪 Adding cookies.txt as fallback.');
-    } else {
-        console.log('⚠️ No cookies.txt found for fallback.');
-    }
-
-    // --- 3. Client Impersonation / Spoofing ---
-    // User-Agent: Makes request look like a modern browser
-    args.push('--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
-    // Extractor Arg: Makes the request look like it came from the YouTube Android App
-    args.push('--extractor-args', 'youtube:player-client=android');
+// Helper function to add cookie arguments
+function addCookieArgs(args, platform) {
+  const cookiePath = path.join(__dirname, 'cookies.txt');
+  
+  if (fs.existsSync(cookiePath)) {
+    args.push('--cookies', cookiePath);
+    console.log('🍪 Using cookies.txt file for', platform);
+    return 'file';
+  } else {
+    console.log('⚠️ No cookies.txt found');
+    return 'none';
+  }
 }
-
 
 // Test endpoint
 app.get('/api/test', (req, res) => {
@@ -135,15 +119,7 @@ app.post('/api/info', async (req, res) => {
     console.log('📥 Fetching info for:', url);
     
     const args = [url, '--dump-json', '--no-warnings', '--skip-download'];
-    // ⭐ UPDATED TO USE NEW AUTH FUNCTION
-    addAuthArgs(args, platform); 
-
-    // ⭐ CORRECTION: Add proxy argument for info fetch
-    if (PROXY_URL) {
-        args.push('--proxy', PROXY_URL);
-        console.log('🌐 Routing info request through proxy.');
-    }
-    
+    addCookieArgs(args, platform);
     args.push('--extractor-retries', '3');
     
     const infoString = await ytDlp.execPromise(args);
@@ -213,13 +189,7 @@ app.post('/api/download', async (req, res) => {
     // Get video info
     console.log('4. Fetching video info...');
     const infoArgs = [url, '--dump-json', '--no-warnings', '--skip-download'];
-    // ⭐ UPDATED TO USE NEW AUTH FUNCTION
-    addAuthArgs(infoArgs, platform);
-    
-    // ⭐ CORRECTION: Add proxy argument for infoArgs
-    if (PROXY_URL) {
-        infoArgs.push('--proxy', PROXY_URL);
-    }
+    addCookieArgs(infoArgs, platform);
     
     let info;
     try {
@@ -254,14 +224,7 @@ app.post('/api/download', async (req, res) => {
     
     // Build download arguments
     const args = [url];
-    // ⭐ UPDATED TO USE NEW AUTH FUNCTION
-    addAuthArgs(args, platform); 
-    
-    // ⭐ CORRECTION: Add proxy argument for main download args
-    if (PROXY_URL) {
-        args.push('--proxy', PROXY_URL);
-        console.log('🌐 Routing download through proxy.');
-    }
+    addCookieArgs(args, platform);
     
     if (contentType.startsWith('video/')) {
       if (formatId === 'audio') {
@@ -294,8 +257,8 @@ app.post('/api/download', async (req, res) => {
       downloadProcess = ytDlp.exec(args, {
         stdio: [
           'ignore', // stdin
-          'pipe',   // stdout
-          'pipe'    // stderr
+          'pipe',   // stdout
+          'pipe'    // stderr
         ]
       });
       console.log('9. ✅ Process created');
@@ -312,7 +275,7 @@ app.post('/api/download', async (req, res) => {
     }
     
     // !!! THE PREVIOUSLY FAILING CHECK HAS BEEN REMOVED !!!
-    /*     if (!downloadProcess.stdout) {
+    /*     if (!downloadProcess.stdout) {
       throw new Error('Process has no stdout');
     }
     */
